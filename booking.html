@@ -156,7 +156,7 @@
           </p>
         </section>
 
-        <form class="space-y-8" id="bookingForm" novalidate>
+        <form class="space-y-8" id="bookingForm" novalidate data-endpoint="https://cgmvzrjxkldxtkrydcdv.supabase.co/functions/v1/booking-email">
           <section class="space-y-3">
             <h3 class="text-[15px] leading-[21px] text-zinc-700">1. Contact Information</h3>
             <div class="border border-zinc-200 rounded-2xl overflow-hidden text-[14px] leading-[20px]">
@@ -204,6 +204,7 @@
                     type="text"
                     class="w-full bg-transparent outline-none text-zinc-700 placeholder:text-zinc-400"
                     placeholder="(if applicable)"
+                    required
                   />
                 </div>
               </div>
@@ -228,6 +229,7 @@
                   <select
                     name="sex"
                     class="w-full bg-transparent outline-none text-zinc-700 rounded-xl px-3 py-2"
+                    required
                   >
                     <option value="">Select</option>
                     <option value="Female">Female</option>
@@ -245,6 +247,7 @@
                     type="text"
                     class="w-full bg-transparent outline-none text-zinc-700 placeholder:text-zinc-400"
                     placeholder="e.g. Teacher, Engineer"
+                    required
                   />
                 </div>
               </div>
@@ -256,6 +259,7 @@
                     type="text"
                     class="w-full bg-transparent outline-none text-zinc-700 placeholder:text-zinc-400"
                     placeholder="Street address, apt/suite"
+                    required
                   />
                 </div>
               </div>
@@ -267,6 +271,7 @@
                     type="text"
                     class="w-full bg-transparent outline-none text-zinc-700 placeholder:text-zinc-400"
                     placeholder="e.g. Los Angeles"
+                    required
                   />
                 </div>
               </div>
@@ -278,6 +283,7 @@
                     type="text"
                     class="w-full bg-transparent outline-none text-zinc-700 placeholder:text-zinc-400"
                     placeholder="e.g. California"
+                    required
                   />
                 </div>
               </div>
@@ -291,6 +297,7 @@
                     placeholder="e.g. 90210"
                     inputmode="numeric"
                     autocomplete="postal-code"
+                    required
                   />
                 </div>
               </div>
@@ -302,6 +309,7 @@
                     type="text"
                     class="w-full bg-transparent outline-none text-zinc-700 placeholder:text-zinc-400"
                     placeholder="e.g. LAX, JFK"
+                    required
                   />
                 </div>
               </div>
@@ -330,6 +338,7 @@
                     type="text"
                     class="w-full bg-transparent outline-none text-zinc-700 placeholder:text-zinc-400"
                     placeholder="e.g., 2:00 PM – 4:00 PM"
+                    required
                   />
                 </div>
               </div>
@@ -423,9 +432,15 @@
           }
         }
 
-        form.addEventListener("submit", function (e) {
+        const requiredFields = [
+          "fullName", "email", "phone", "organization", "bookingFor", "sex", "occupation",
+          "homeAddress", "city", "state", "zipcode", "nearestAirport",
+          "preferredDate", "preferredTime", "location"
+        ];
+
+        form.addEventListener("submit", async function (e) {
+          e.preventDefault();
           let valid = true;
-          const requiredFields = ["fullName", "email", "phone", "bookingFor", "preferredDate", "location"];
           requiredFields.forEach((name) => {
             const el = form.elements[name];
             if (!el) return;
@@ -435,9 +450,45 @@
             if (hasError) valid = false;
           });
           if (!valid) {
-            e.preventDefault();
             const firstError = form.querySelector(".ring-red-500\\/70 input, .ring-red-500\\/70 select");
             if (firstError) firstError.focus();
+            return;
+          }
+
+          const submitBtn = form.querySelector('button[type="submit"]');
+          const originalText = submitBtn?.textContent;
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Sending…";
+          }
+
+          const endpoint = form.dataset.endpoint || "https://cgmvzrjxkldxtkrydcdv.supabase.co/functions/v1/booking-email";
+          const payload = {};
+          requiredFields.forEach((name) => {
+            const el = form.elements[name];
+            if (el) payload[name] = el.value.trim();
+          });
+
+          try {
+            const res = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(data.error || data.details || "Request failed");
+            }
+            alert("Thank you. Your booking request has been sent. We’ll get back to you soon.");
+            form.reset();
+          } catch (err) {
+            alert("Something went wrong. Please try again or email us at hello@themartinhenderson.org.");
+            console.error(err);
+          } finally {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = originalText || "Submit booking request";
+            }
           }
         });
       })();
