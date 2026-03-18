@@ -26,6 +26,20 @@
         font-family: "LayGrotesk", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
           Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       }
+      .btn-spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: btn-spin 0.7s linear infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      @keyframes btn-spin {
+        to { transform: rotate(360deg); }
+      }
     </style>
   </head>
   <body class="min-h-screen bg-white text-black">
@@ -154,7 +168,7 @@
 
         <section class="space-y-3">
           <h2 class="text-[16px] leading-[22px] text-zinc-700">Your Details</h2>
-          <form class="space-y-6">
+          <form class="space-y-6" id="reportScamForm" novalidate data-endpoint="https://cgmvzrjxkldxtkrydcdv.supabase.co/functions/v1/report-scam-email">
             <div class="border border-zinc-200 rounded-2xl overflow-hidden text-[14px] leading-[20px]">
               <div class="grid grid-cols-[140px,1fr] md:grid-cols-[200px,1fr] border-b border-zinc-200">
                 <div class="bg-zinc-50 px-4 py-3 font-medium">Name (optional)</div>
@@ -243,9 +257,9 @@
             <div class="pt-2">
               <button
                 type="submit"
-                class="inline-flex items-center justify-center rounded-[1000px] bg-black text-white px-6 py-3 text-[14px] leading-[20px] hover:bg-black/85 transition-colors"
+                class="inline-flex items-center justify-center rounded-[1000px] bg-black text-white px-6 py-3 text-[14px] leading-[20px] hover:bg-black/85 transition-colors disabled:opacity-70 disabled:pointer-events-none"
               >
-                Submit scam report
+                <span class="btn-text">Submit scam report</span>
               </button>
             </div>
           </form>
@@ -311,6 +325,61 @@
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeMobileMenu();
       });
+
+      (function () {
+        const form = document.getElementById("reportScamForm");
+        if (!form) return;
+        const requiredNames = ["platform", "handle", "details"];
+        function setError(el, hasError) {
+          const row = el.closest(".grid");
+          if (!row) return;
+          if (hasError) row.classList.add("ring-1", "ring-red-500/70", "rounded-xl");
+          else row.classList.remove("ring-1", "ring-red-500/70", "rounded-xl");
+        }
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          let valid = true;
+          requiredNames.forEach((name) => {
+            const el = form.elements[name];
+            if (!el) return;
+            const value = el.value.trim();
+            setError(el, !value);
+            if (!value) valid = false;
+          });
+          if (!valid) {
+            const firstError = form.querySelector(".ring-red-500\\/70 input, .ring-red-500\\/70 select, .ring-red-500\\/70 textarea");
+            if (firstError) firstError.focus();
+            return;
+          }
+          const submitBtn = form.querySelector('button[type="submit"]');
+          const originalHtml = submitBtn ? submitBtn.innerHTML : "";
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="btn-spinner"></span><span>Sending…</span>';
+          }
+          const payload = {};
+          ["name", "email", "platform", "handle", "amount", "details"].forEach((name) => {
+            const el = form.elements[name];
+            if (el) payload[name] = el.value.trim();
+          });
+          const endpoint = form.dataset.endpoint || "https://cgmvzrjxkldxtkrydcdv.supabase.co/functions/v1/report-scam-email";
+          try {
+            const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || data.details || "Request failed");
+            const confirmHtml = '<div class="border border-zinc-200 rounded-2xl bg-zinc-50/50 px-6 py-10 text-center space-y-3"><p class="text-[13px] leading-[18px] text-zinc-500">Report received</p><h2 class="text-[22px] leading-[28px] font-medium">Thank you</h2><p class="text-[14px] leading-[20px] text-zinc-600 max-w-md mx-auto">Your report has been sent. We&rsquo;ll use it to help keep fans safe.</p></div>';
+            form.outerHTML = confirmHtml;
+          } catch (err) {
+            alert("Something went wrong. Please try again or email us at hello@themartinhenderson.org.");
+            console.error(err);
+          } finally {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = originalHtml || '<span class="btn-text">Submit scam report</span>';
+            }
+          }
+        });
+      })();
     </script>
   </body>
 </html>
